@@ -1,0 +1,35 @@
+import pyds
+import numpy as np
+import cv2
+
+def display_frame(buffer, batch_meta):
+    # フレームごとに処理
+    l_frame = batch_meta.frame_meta_list
+    while l_frame is not None:
+        try:
+            frame_meta = pyds.NvDsFrameMeta.cast(l_frame.data)
+        except StopIteration:
+            break
+
+        # フレーム番号とバッチID取得
+        frame_index = frame_meta.batch_id
+        width = frame_meta.source_frame_width
+        height = frame_meta.source_frame_height
+
+        # NvBufSurface を取得
+        surface = pyds.get_nvds_buf_surface(hash(buffer), frame_index)
+
+        # GPUメモリからCPUメモリへコピー（RGBA）
+        frame_rgba = np.array(surface, copy=True, order='C')  # shape=(H, W, 4)
+
+        # RGBA → BGR（OpenCV形式）
+        frame_bgr = cv2.cvtColor(frame_rgba, cv2.COLOR_RGBA2BGR)
+
+        # OpenCVで表示
+        cv2.imshow("DeepStream Frame", frame_bgr)
+        cv2.waitKey(1)
+
+        try:
+            l_frame = l_frame.next
+        except StopIteration:
+            break
