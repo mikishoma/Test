@@ -33,3 +33,54 @@ def display_frame(buffer, batch_meta):
             l_frame = l_frame.next
         except StopIteration:
             break
+
+
+
+
+
+
+
+
+import gi
+gi.require_version('Gst', '1.0')
+from gi.repository import Gst, GObject
+
+Gst.init(None)
+
+# パイプライン作成
+pipeline = Gst.Pipeline()
+
+# 映像入力、処理、muxerなどの設定
+source = Gst.ElementFactory.make("uridecodebin", "source")
+streammux = Gst.ElementFactory.make("nvstreammux", "streammux")
+# ...（他の要素：nvinfer, nvvidconv, nvdsosdなど）
+
+# 分岐用のtee
+tee = Gst.ElementFactory.make("tee", "tee")
+
+# sink1: ディスプレイ出力
+queue_display = Gst.ElementFactory.make("queue", "queue_display")
+sink_display = Gst.ElementFactory.make("nveglglessink", "eglsink")
+
+# sink2: ファイル出力（エンコード付き）
+queue_file = Gst.ElementFactory.make("queue", "queue_file")
+encoder = Gst.ElementFactory.make("nvv4l2h264enc", "encoder")
+parser = Gst.ElementFactory.make("h264parse", "parser")
+muxer = Gst.ElementFactory.make("qtmux", "muxer")  # mp4出力用
+sink_file = Gst.ElementFactory.make("filesink", "filesink")
+sink_file.set_property("location", "/path/to/output.mp4")
+
+# パイプラインに追加し、リンク
+for elem in [source, streammux, tee, queue_display, sink_display, queue_file, encoder, parser, muxer, sink_file]:
+    pipeline.add(elem)
+
+# teeから両方向に分岐
+tee.link(queue_display)
+queue_display.link(sink_display)
+
+tee.link(queue_file)
+queue_file.link(encoder)
+encoder.link(parser)
+parser.link(muxer)
+muxer.link(sink_file)
+
