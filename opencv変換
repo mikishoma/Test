@@ -84,3 +84,39 @@ encoder.link(parser)
 parser.link(muxer)
 muxer.link(sink_file)
 
+
+
+
+
+
+# 分岐点
+tee = Gst.ElementFactory.make("tee", "tee")
+
+# display出力パス
+queue_display = Gst.ElementFactory.make("queue", "queue_display")
+sink_display = Gst.ElementFactory.make("nveglglessink", "sink_display")
+sink_display.set_property("sync", False)
+
+# file出力パス
+queue_file = Gst.ElementFactory.make("queue", "queue_file")
+encoder = Gst.ElementFactory.make("nvv4l2h264enc", "encoder")
+parser = Gst.ElementFactory.make("h264parse", "parser")
+muxer = Gst.ElementFactory.make("qtmux", "muxer")
+sink_file = Gst.ElementFactory.make("filesink", "sink_file")
+sink_file.set_property("location", "/tmp/output.mp4")
+sink_file.set_property("sync", False)
+
+# パイプラインに追加
+for elem in [tee, queue_display, sink_display, queue_file, encoder, parser, muxer, sink_file]:
+    pipeline.add(elem)
+
+# 分岐リンク
+tee.link(queue_display)
+queue_display.link(sink_display)
+
+tee.link(queue_file)
+queue_file.link(encoder)
+encoder.link(parser)
+parser.link(muxer)
+muxer.link(sink_file)
+
