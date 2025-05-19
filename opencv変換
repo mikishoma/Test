@@ -282,14 +282,27 @@ output-tensor-meta=1 を忘れずに設定（Python APIで推論出力を取得�
 結論
 DeepStream 6.3 でも、Python + OpenCV でセグメンテーションマスクの座標（輪郭やピクセル位置）は取得可能です。mask_params.data を Numpy に変換する処理だけ注意が必要です。
 
-ご希望であれば、DeepStreamの設定ファイル例やサンプルコード全体も提供可能です。どんなモデルを使っているか教えてもらえれば、もっと具体的にサポートできます。
 
 
 
 
 
 
+mask = get_mask_array(obj_meta)  # shape = (mask_h, mask_w)
 
+bbox_x = int(obj_meta.rect_params.left)
+bbox_y = int(obj_meta.rect_params.top)
+bbox_w = int(obj_meta.rect_params.width)
+bbox_h = int(obj_meta.rect_params.height)
 
+mask_h, mask_w = mask.shape
 
-ChatGPT の回答は必ずしも正しいとは限りません。重要な情報は確認するように
+# マスクの非ゼロ領域の座標を絶対座標に変換
+mask_threshold = 0.5  # 必要に応じてしきい値を変更
+indices = np.argwhere(mask > mask_threshold)
+
+for y_mask, x_mask in indices:
+    x_abs = int(bbox_x + x_mask * bbox_w / mask_w)
+    y_abs = int(bbox_y + y_mask * bbox_h / mask_h)
+    print(f"マスク座標({x_mask},{y_mask}) → 絶対座標({x_abs},{y_abs})")
+
