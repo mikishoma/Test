@@ -222,3 +222,74 @@ scale_y = obj_meta.rect_params.height / mask.height
 # マスク座標を元画像座標へ変換
 xs_abs = xs * scale_x + x_offset
 ys_abs = ys * scale_y + y_offset
+
+
+
+
+
+
+
+
+. Python バインディング（pyds）でマスク取得
+Pythonアプリケーションでも pyds.NvDsObjectMeta.mask_params にアクセスできます。
+ただし、6.3の pyds には get_segmentation_masks() というユーティリティ関数はデフォルトでは含まれていない可能性があります。
+
+回避策（マスクデータ取得）
+python
+コードをコピーする
+import pyds
+import numpy as np
+import ctypes
+
+def get_mask_array(mask_params):
+    width = mask_params.width
+    height = mask_params.height
+    size = int(width * height)
+
+    # ctypes で pointer を扱う
+    mask_ptr = ctypes.cast(mask_params.data, ctypes.POINTER(ctypes.c_uint8))
+    mask_array = np.ctypeslib.as_array(mask_ptr, shape=(size,))
+    mask_array = mask_array.reshape((height, width))
+
+    return mask_array
+3. OpenCVで輪郭取得
+上記 mask_array を OpenCV に渡して座標リストを取得できます。
+
+python
+コードをコピーする
+import cv2
+
+mask = get_mask_array(obj.mask_params)
+contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+for contour in contours:
+    print("Contour coordinates:", contour[:, 0, :])  # (x, y) 座標
+4. 注意点
+マスクはオブジェクトのバウンディングボックス内に収まっていることが多く、マスクの座標をフレーム全体の座標に変換する必要があります。
+
+obj.rect_params.left/top を使ってオフセットすることで変換可能です。
+
+python
+コードをコピーする
+x_offset = int(obj.rect_params.left)
+y_offset = int(obj.rect_params.top)
+contour_global = contour + np.array([[x_offset, y_offset]])
+5. 関連 DeepStream 設定ファイル
+config_infer_primary_segnet.txt の network-type=3 （セグメンテーション）を指定
+
+output-tensor-meta=1 を忘れずに設定（Python APIで推論出力を取得するため）
+
+結論
+DeepStream 6.3 でも、Python + OpenCV でセグメンテーションマスクの座標（輪郭やピクセル位置）は取得可能です。mask_params.data を Numpy に変換する処理だけ注意が必要です。
+
+ご希望であれば、DeepStreamの設定ファイル例やサンプルコード全体も提供可能です。どんなモデルを使っているか教えてもらえれば、もっと具体的にサポートできます。
+
+
+
+
+
+
+
+
+
+ChatGPT の回答は必ずしも正しいとは限りません。重要な情報は確認するように
